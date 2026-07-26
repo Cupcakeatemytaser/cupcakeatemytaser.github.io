@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Research — Field Notes</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@300;400;500;600&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap');
+
+  :root {
+    --bg:      #0D1117;
+    --bg2:     #161B22;
+    --bg3:     #1C2128;
+    --border:  #30363D;
+    --accent:  #00E5FF;
+    --green:   #3FB950;
+    --yellow:  #D29922;
+    --red:     #F85149;
+    --purple:  #A78BFA;
+    --text:    #E6EDF3;
+    --muted:   #8B949E;
+    --dim:     #484F58;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  /* TOP NAV */
+  nav {
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    background: rgba(13,17,23,0.92);
+    backdrop-filter: blur(8px);
+    z-index: 100;
+  }
+
+  .nav-brand {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    text-decoration: none;
+    letter-spacing: 1px;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 24px;
+    list-style: none;
+  }
+
+  .nav-links a {
+    font-size: 13px;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+
+  .nav-links a:hover { color: var(--text); }
+
+  /* HERO */
+  .hero {
+    padding: 80px 40px 64px;
+    max-width: 860px;
+    margin: 0 auto;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .hero-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  .hero h1 {
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-size: clamp(36px, 6vw, 64px);
+    font-weight: 600;
+    line-height: 1.1;
+    margin-bottom: 20px;
+    color: var(--text);
+  }
+
+  .hero-sub {
+    font-size: 17px;
+    color: var(--muted);
+    max-width: 520px;
+    line-height: 1.7;
+  }
+
+  /* LAYOUT */
+  .page {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 60px 40px;
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: 60px;
+    align-items: start;
+  }
+
+  /* POSTS */
+  .posts-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--dim);
+    text-transform: uppercase;
+    margin-bottom: 32px;
+  }
+
+  /* FEATURED POST */
+  .post-featured {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 32px;
+    transition: border-color 0.2s;
+    text-decoration: none;
+    display: block;
+  }
+
+  .post-featured:hover { border-color: var(--accent); }
+
+  .post-featured-inner {
+    padding: 28px 32px;
+  }
+
+  .post-featured-banner {
+    background: linear-gradient(135deg, #0D1F2D 0%, #1A1040 100%);
+    height: 120px;
+    display: flex;
+    align-items: center;
+    padding: 0 32px;
+    border-bottom: 1px solid var(--border);
+    gap: 16px;
+  }
+
+  .post-featured-icon {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 32px;
+    color: var(--accent);
+    opacity: 0.6;
+  }
+
+  .featured-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    background: rgba(0,229,255,0.08);
+    border: 1px solid rgba(0,229,255,0.2);
+    padding: 3px 10px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: inline-block;
+  }
+
+  .post-featured h2 {
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-size: 26px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--text);
+    margin-bottom: 10px;
+    text-decoration: none;
+  }
+
+  .post-featured p {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+  }
+
+  .post-meta .dot { color: var(--border); }
+
+  .read-link {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .read-link:hover { opacity: 0.8; }
+
+  /* POST LIST */
+  .post-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .post-item {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    align-items: start;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+
+  .post-item:first-child { border-top: 1px solid var(--border); }
+  .post-item:hover .post-item-title { color: var(--accent); }
+
+  .post-item-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .post-item-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.4;
+    transition: color 0.15s;
+    margin-bottom: 4px;
+  }
+
+  .post-item-desc {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .post-item-date {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    white-space: nowrap;
+    padding-top: 2px;
+  }
+
+  /* TAG PILLS */
+  .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    display: inline-block;
+  }
+
+  .tag.red    { border-color: rgba(248,81,73,0.3);   color: var(--red);    background: rgba(248,81,73,0.06); }
+  .tag.cyan   { border-color: rgba(0,229,255,0.3);   color: var(--accent); background: rgba(0,229,255,0.06); }
+  .tag.green  { border-color: rgba(63,185,80,0.3);   color: var(--green);  background: rgba(63,185,80,0.06); }
+  .tag.yellow { border-color: rgba(210,153,34,0.3);  color: var(--yellow); background: rgba(210,153,34,0.06); }
+  .tag.purple { border-color: rgba(167,139,250,0.3); color: var(--purple); background: rgba(167,139,250,0.06); }
+
+  /* SIDEBAR */
+  .sidebar { position: sticky; top: 80px; }
+
+  .sidebar-section {
+    margin-bottom: 36px;
+  }
+
+  .sidebar-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--dim);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .sidebar-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    background: none;
+  }
+
+  .sidebar-tag:hover,
+  .sidebar-tag.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(0,229,255,0.06);
+  }
+
+  .recent-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .recent-list li a {
+    font-size: 13px;
+    color: var(--muted);
+    text-decoration: none;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    transition: color 0.15s;
+    line-height: 1.4;
+  }
+
+  .recent-list li a:hover { color: var(--text); }
+
+  .recent-list li a::before {
+    content: '→';
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .about-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+
+  .about-card p {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .about-card .about-name {
+    font-weight: 500;
+    color: var(--text);
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+
+  .about-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(0,229,255,0.2), rgba(124,58,237,0.2));
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+
+  /* STATS ROW */
+  .stats-row {
+    display: flex;
+    gap: 24px;
+    padding: 20px 0;
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+  }
+
+  .stat {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .stat-num {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text);
+    display: block;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 32px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+  }
+
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--accent); }
+
+  /* RESPONSIVE */
+  @media (max-width: 720px) {
+    .page { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    nav { padding: 0 20px; }
+    .hero { padding: 48px 20px 40px; }
+    .page { padding: 40px 20px; }
+    footer { flex-direction: column; gap: 12px; text-align: center; }
+  }
+
+  /* ANIMATIONS */
+  .post-featured, .post-item { opacity: 0; transform: translateY(12px); animation: fadeUp 0.4s forwards; }
+  .post-featured { animation-delay: 0.1s; }
+  .post-item:nth-child(1) { animation-delay: 0.15s; }
+  .post-item:nth-child(2) { animation-delay: 0.2s; }
+  .post-item:nth-child(3) { animation-delay: 0.25s; }
+  .post-item:nth-child(4) { animation-delay: 0.3s; }
+  .post-item:nth-child(5) { animation-delay: 0.35s; }
+
+  @keyframes fadeUp {
+    to { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-brand">// SEC_RESEARCH</a>
+  <ul class="nav-links">
+    <li><a href="#">Writing</a></li>
+    <li><a href="#">Tools</a></li>
+    <li><a href="#">About</a></li>
+    <li><a href="https://github.com/">GitHub ↗</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-label">// Field Notes</div>
+  <h1>Malware analysis,<br>reverse engineering<br>&amp; security research.</h1>
+  <p class="hero-sub">Writeups from hands-on analysis sessions — dissecting real samples, building tooling, and documenting techniques.</p>
+
+  <div class="stats-row">
+    <div class="stat">
+      <span class="stat-num">01</span>
+      <span class="stat-label">Articles</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">2026</span>
+      <span class="stat-label">Since</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">∞</span>
+      <span class="stat-label">Samples</span>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="page">
+  <main>
+    <div class="posts-label">// Recent Writings</div>
+
+    <!-- FEATURED POST -->
+    <a href="file:///C:/Users/REM/AppData/Local/Temp/vmware-REM/VMwareDnD/12e86a16/dll-debug-wrapper.html" class="post-featured">
+      <div class="post-featured-banner">
+        <div class="post-featured-icon">&gt;_</div>
+        <span class="tag cyan">Guide</span>
+        <span class="tag red">Malware Analysis</span>
+      </div>
+      </a><div class="post-featured-inner"><a href="file:///C:/Users/REM/AppData/Local/Temp/vmware-REM/VMwareDnD/12e86a16/dll-debug-wrapper.html" class="post-featured">
+        <div class="featured-tag">Featured</div>
+        <h2>Debug Any DLL with a C# Wrapper &amp; dnSpy</h2>
+        <p>A complete walkthrough: building an executable wrapper in 
+Visual Studio 2026, loading an external DLL using reflection, calling 
+specific methods by name, and stepping through the decompiled code line 
+by line in dnSpy.</p>
+        <div class="post-meta">
+          <span>July 2026</span>
+          <span class="dot">·</span>
+          <span>Visual Studio 2026</span>
+          <span class="dot">·</span>
+          <span>C# / .NET Framework</span>
+          <span class="dot">·</span>
+          <span>dnSpy</span>
+        </div>
+        </a><a href="file:///C:/Users/REM/AppData/Local/Temp/vmware-REM/VMwareDnD/12e86a16/dll-debug-wrapper.html" class="read-link" style="margin-top: 16px;">Read the guide →</a>
+      </div>
+    
+
+    <!-- POST LIST -->
+    <div class="post-list">
+
+      <a href="#" class="post-item">
+        <div>
+          <div class="post-item-tag">Malware Analysis</div>
+          <div class="post-item-title">Insert Title</div>
+          <div class="post-item-desc">Insert Description.</div>
+          <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
+            <span class="tag red">Malware</span>
+            <span class="tag cyan">.NET</span>
+            <span class="tag yellow">RC4</span>
+            <span class="tag purple">Evasion</span>
+          </div>
+        </div>
+        <div class="post-item-date">Jul 2026</div>
+      </a>
+
+      <a href="#" class="post-item">
+        <div>
+          <div class="post-item-tag">Reverse Engineering</div>
+          <div class="post-item-title">Insert Title</div>
+          <div class="post-item-desc">Insert Description.</div>
+          <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
+            <span class="tag green">JavaScript</span>
+            <span class="tag yellow">Obfuscation</span>
+            <span class="tag cyan">SOC</span>
+          </div>
+        </div>
+        <div class="post-item-date">Jul 2026</div>
+      </a>
+
+      <a href="#" class="post-item">
+        <div>
+          <div class="post-item-tag">Threat Intelligence</div>
+           <div class="post-item-title">Insert Title</div>
+          <div class="post-item-desc">Insert Description.</div>
+          <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
+            <span class="tag red">Cryptography</span>
+            <span class="tag cyan">.NET</span>
+            <span class="tag purple">Evasion</span>
+          </div>
+        </div>
+        <div class="post-item-date">Jul 2026</div>
+      </a>
+
+      <a href="#" class="post-item">
+        <div>
+          <div class="post-item-tag">Detection Engineering</div>
+          <div class="post-item-title">Insert Title</div>
+          <div class="post-item-desc">Insert Description.</div>
+          <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
+            <span class="tag green">KQL</span>
+            <span class="tag cyan">Sentinel</span>
+            <span class="tag yellow">Detection</span>
+          </div>
+        </div>
+        <div class="post-item-date">Jul 2026</div>
+      </a>
+
+    </div>
+  </main>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <div class="sidebar-section">
+      <div class="about-card">
+        <!--div class="about-avatar">RE</div-->
+        <div class="about-name">Cupcakeatemytaser</div>
+        <p>Malware analyst and reverse engineer. Writing about samples I encounter, tools I build, and techniques that work.</p>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">// Filter by topic</div>
+      <div class="sidebar-tags">
+        <button class="sidebar-tag active" onclick="filterTag(this, 'all')">All</button>
+        <button class="sidebar-tag" onclick="filterTag(this, 'malware')">Malware</button>
+        <button class="sidebar-tag" onclick="filterTag(this, 're')">Reverse Engineering</button>
+        <button class="sidebar-tag" onclick="filterTag(this, 'detection')">Detection</button>
+        <button class="sidebar-tag" onclick="filterTag(this, 'tools')">Tools</button>
+        <button class="sidebar-tag" onclick="filterTag(this, 'net')">.NET</button>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">// Quick links</div>
+      <ul class="recent-list">
+        <li><a href="file:///C:/Users/REM/AppData/Local/Temp/vmware-REM/VMwareDnD/12e86a16/dll-debug-wrapper.html">C# Debug Wrapper Guide</a></li>
+        <!--li><a href="#">Excel Malware Full Analysis</a></li-->
+        <!--li><a href="#">JS Deobfuscation Techniques</a></li-->
+        <!--li><a href="#">KQL Detection Queries</a></li-->
+      </ul>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">// Tools used</div>
+      <div class="sidebar-tags" style="gap: 6px;">
+        <span class="tag cyan">dnSpy</span>
+        <span class="tag purple">Visual Studio</span>
+        <span class="tag green">CyberChef</span>
+        <span class="tag yellow">Process Monitor</span>
+        <span class="tag red">Wireshark</span>
+        <span class="tag cyan">dotPeek</span>
+      </div>
+    </div>
+
+  </aside>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <span>// SEC_RESEARCH — Field Notes</span>
+  <span>Built with GitHub Pages &nbsp;·&nbsp; <a href="https://github.com/">View source ↗</a></span>
+</footer>
+
+<script>
+  function filterTag(btn, tag) {
+    document.querySelectorAll('.sidebar-tag').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+</script>
+
+
+
+</body></html>

@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DLL Debug Wrapper — C# &amp; dnSpy Guide</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg:        #0D1117;
+    --bg2:       #161B22;
+    --bg3:       #1C2128;
+    --border:    #30363D;
+    --accent:    #00E5FF;
+    --accent2:   #7C3AED;
+    --green:     #3FB950;
+    --yellow:    #D29922;
+    --red:       #F85149;
+    --text:      #E6EDF3;
+    --muted:     #8B949E;
+    --code-bg:   #161B22;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  /* HERO */
+  .hero {
+    position: relative;
+    padding: 80px 40px 60px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -100px; left: 50%;
+    transform: translateX(-50%);
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(0,229,255,0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  .hero h1 {
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 600;
+    line-height: 1.15;
+    max-width: 800px;
+    margin: 0 auto 20px;
+  }
+
+  .hero h1 span {
+    color: var(--accent);
+  }
+
+  .hero-sub {
+    color: var(--muted);
+    max-width: 560px;
+    margin: 0 auto 40px;
+    font-size: 16px;
+  }
+
+  .badge-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+
+  .badge.green { border-color: var(--green); color: var(--green); }
+  .badge.cyan  { border-color: var(--accent); color: var(--accent); }
+  .badge.purple{ border-color: #7C3AED; color: #A78BFA; }
+
+  /* LAYOUT */
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* NAV SIDEBAR */
+  .page-layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 0;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 24px;
+    align-items: start;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 24px;
+    padding-right: 32px;
+  }
+
+  .sidebar-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .sidebar nav a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    transition: all 0.15s;
+    margin-bottom: 2px;
+  }
+
+  .sidebar nav a:hover,
+  .sidebar nav a.active {
+    background: var(--bg2);
+    color: var(--text);
+  }
+
+  .sidebar nav a .step-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    min-width: 18px;
+  }
+
+  /* CONTENT */
+  .content section {
+    margin-bottom: 64px;
+    scroll-margin-top: 24px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .step-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    background: rgba(0,229,255,0.08);
+    border: 1px solid rgba(0,229,255,0.2);
+    padding: 4px 10px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  .section-header h2 {
+    font-size: 20px;
+    font-weight: 600;
+  }
+
+  p { margin-bottom: 16px; color: #C9D1D9; }
+
+  /* CODE BLOCKS */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 20px 0;
+    overflow: hidden;
+  }
+
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .code-lang {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  .code-filename {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+  }
+
+  pre {
+    padding: 20px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  /* Syntax highlighting */
+  .kw  { color: #FF7B72; }
+  .kw2 { color: #79C0FF; }
+  .str { color: #A5D6FF; }
+  .cmt { color: #8B949E; font-style: italic; }
+  .num { color: #F2CC60; }
+  .cls { color: #FFA657; }
+  .met { color: #D2A8FF; }
+  .typ { color: #79C0FF; }
+
+  /* STEPS */
+  .steps {
+    counter-reset: step;
+    list-style: none;
+    margin: 20px 0;
+  }
+
+  .steps li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+    align-items: start;
+  }
+
+  .steps li::before {
+    content: counter(step);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    background: rgba(0,229,255,0.08);
+    border: 1px solid rgba(0,229,255,0.2);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .steps li .step-content strong {
+    display: block;
+    color: var(--text);
+    margin-bottom: 4px;
+    font-size: 14px;
+  }
+
+  .steps li .step-content p {
+    margin: 0;
+    font-size: 13px;
+  }
+
+  /* CALLOUTS */
+  .callout {
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 20px 0;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    font-size: 14px;
+  }
+
+  .callout-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .callout.tip    { background: rgba(63,185,80,0.08);  border: 1px solid rgba(63,185,80,0.2);  }
+  .callout.warn   { background: rgba(210,153,34,0.08); border: 1px solid rgba(210,153,34,0.2); }
+  .callout.info   { background: rgba(0,229,255,0.06);  border: 1px solid rgba(0,229,255,0.15); }
+  .callout.danger { background: rgba(248,81,73,0.08);  border: 1px solid rgba(248,81,73,0.2);  }
+
+  .callout p { margin: 0; color: var(--text); }
+  .callout strong { color: var(--text); }
+
+  /* TABLE */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 13px;
+  }
+
+  th {
+    background: var(--bg3);
+    padding: 10px 16px;
+    text-align: left;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  td {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    color: #C9D1D9;
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg2); }
+
+  td code, p code, li code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: var(--accent);
+  }
+
+  /* SHORTCUT */
+  kbd {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-bottom: 2px solid var(--border);
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: var(--text);
+  }
+
+  /* DEBUG KEYS TABLE */
+  .key-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin: 20px 0;
+  }
+
+  .key-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .key-card kbd {
+    font-size: 13px;
+    min-width: 48px;
+    text-align: center;
+  }
+
+  .key-card .key-desc {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  /* FLOW DIAGRAM */
+  .flow {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    margin: 20px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 2;
+  }
+
+  .flow-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 4px;
+  }
+
+  .flow-step.highlight { background: rgba(0,229,255,0.06); border: 1px solid rgba(0,229,255,0.15); }
+  .flow-arrow { color: var(--muted); padding-left: 24px; }
+  .flow-label { color: var(--accent); min-width: 120px; }
+  .flow-desc { color: var(--muted); }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 40px 24px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  footer a { color: var(--accent); text-decoration: none; }
+
+  /* RESPONSIVE */
+  @media (max-width: 768px) {
+    .page-layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .hero { padding: 60px 20px 40px; }
+  }
+
+  /* SCROLL ANIMATION */
+  section { opacity: 0; transform: translateY(16px); transition: opacity 0.4s, transform 0.4s; }
+  section.visible { opacity: 1; transform: none; }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-eyebrow">// Security Research Guide</div>
+  <h1>Debug Any DLL with a<br><span>C# Wrapper</span> &amp; dnSpy</h1>
+  <p class="hero-sub">Build an executable wrapper in Visual Studio 2026,
+ load an external DLL, call its functions, and step through its code 
+with dnSpy.</p>
+  <div class="badge-row">
+    <span class="badge cyan">Visual Studio 2026</span>
+    <span class="badge purple">C# / .NET Framework</span>
+    <span class="badge green">dnSpy 6.x</span>
+    <span class="badge">x64</span>
+  </div>
+</div>
+
+<div class="page-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-label">On this page</div>
+    <nav>
+      <a href="#overview" class="active"><span class="step-num">00</span> Overview</a>
+      <a href="#setup"><span class="step-num">01</span> VS 2026 Setup</a>
+      <a href="#dll-info"><span class="step-num">02</span> Inspect the DLL</a>
+      <a href="#wrapper"><span class="step-num">03</span> Build the Wrapper</a>
+      <a href="#reference"><span class="step-num">04</span> Add Reference</a>
+      <a href="#framework"><span class="step-num">05</span> Match Framework</a>
+      <a href="#common-errors"><span class="step-num">06</span> Common Errors</a>
+      <a href="#dnspy"><span class="step-num">07</span> Debug with dnSpy</a>
+      <a href="#shortcuts"><span class="step-num">08</span> Debug Shortcuts</a>
+    </nav>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="content">
+
+    <!-- OVERVIEW -->
+    <section id="overview" class="visible">
+      <div class="section-header">
+        <span class="step-badge">00</span>
+        <h2>Overview</h2>
+      </div>
+      <p>When you have a DLL with no accompanying executable — whether 
+it's a third-party library, a plugin, or a sample you're analysing — you
+ need a wrapper EXE to load and call it. This guide walks through the 
+complete process: from creating the project in Visual Studio 2026 to 
+stepping through DLL code line by line in dnSpy.</p>
+
+      <div class="flow">
+        <div class="flow-step highlight">
+          <span class="flow-label">Your DLL</span>
+          <span class="flow-desc">The compiled .dll file you want to debug</span>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step highlight">
+          <span class="flow-label">Wrapper EXE</span>
+          <span class="flow-desc">Console app that loads and calls the DLL</span>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step highlight">
+          <span class="flow-label">dnSpy</span>
+          <span class="flow-desc">Attach debugger, set breakpoints, step through</span>
+        </div>
+      </div>
+
+      <div class="callout info">
+        <span class="callout-icon">ℹ️</span>
+        <p><strong>Architecture must match.</strong> If your DLL is x64, your wrapper must also target x64. A mismatch causes a <code>BadImageFormatException</code> at runtime.</p>
+      </div>
+    </section>
+
+    <!-- SETUP -->
+    <section id="setup">
+      <div class="section-header">
+        <span class="step-badge">01</span>
+        <h2>Visual Studio 2026 Setup</h2>
+      </div>
+      <p>Visual Studio 2026 introduces the Fluent UI redesign and deep 
+GitHub Copilot integration. The project creation steps are the same as 
+earlier versions — the dialogs just look cleaner.</p>
+
+      <ol class="steps">
+        <li>
+          <div class="step-content">
+            <strong>Create a Blank Solution</strong>
+            <p>Open VS 2026 → <strong>Create a new project</strong> → search <strong>Blank Solution</strong> → name it and click <strong>Create</strong>.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Add a Console App project</strong>
+            <p>In Solution Explorer, right-click the solution → <strong>Add → New Project</strong> → search <strong>Console App (.NET Framework)</strong> → name it <code>DebugWrapper</code>.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Select the correct framework</strong>
+            <p>Choose the same .NET Framework version as your DLL. To 
+check your DLL's runtime, open it in dnSpy and read the header — it will
+ say e.g. <em>Runtime: .NET Framework 4.8</em>.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Set architecture to x64</strong>
+            <p>Right-click <strong>DebugWrapper → Properties → Build tab</strong> → set <strong>Platform target</strong> to <strong>x64</strong>. This must match the DLL architecture.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Set as Startup Project</strong>
+            <p>Right-click <strong>DebugWrapper</strong> in Solution Explorer → <strong>Set as Startup Project</strong>. It goes <strong>bold</strong> to confirm.</p>
+          </div>
+        </li>
+      </ol>
+
+      <div class="callout warn">
+        <span class="callout-icon">⚠️</span>
+        <p><strong>Console App (.NET Framework) vs Console App (.NET)</strong> — these are different. If your DLL targets .NET Framework 4.x, pick the Framework version. Mixing them causes load failures.</p>
+      </div>
+    </section>
+
+    <!-- INSPECT DLL -->
+    <section id="dll-info">
+      <div class="section-header">
+        <span class="step-badge">02</span>
+        <h2>Inspect the DLL First</h2>
+      </div>
+      <p>Before writing any code you need three things from the DLL: its <strong>namespace</strong>, its <strong>class name</strong>, and the <strong>method name</strong> you want to call. Open the DLL in dnSpy and check the header, then use the Object Browser in Visual Studio.</p>
+
+      <div class="callout info">
+        <span class="callout-icon">💡</span>
+        <p><strong>Namespace</strong> = the building. <strong>Class</strong> = a room inside it. <strong>Method</strong> = the person in that room who does a job. You need all three to make a call.</p>
+      </div>
+
+      <h3 style="font-size:15px; margin: 24px 0 12px; color: var(--text);">Using the Object Browser in VS 2026</h3>
+      <ol class="steps">
+        <li>
+          <div class="step-content">
+            <strong>Add a reference to the DLL first</strong>
+            <p>Right-click <strong>References</strong> (or <strong>Dependencies</strong>) → <strong>Add Reference → Browse</strong> → select your .dll file.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Open Object Browser</strong>
+            <p>Go to <strong>View → Object Browser</strong> or press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>J</kbd>.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Expand your DLL</strong>
+            <p>In the left panel, expand your DLL → expand a namespace →
+ expand a class → you'll see all methods listed. The ones starting with <code>{}</code> are your namespaces.</p>
+          </div>
+        </li>
+      </ol>
+
+      <table>
+        <thead>
+          <tr><th>What to find</th><th>Where it appears</th><th>Used in code as</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Namespace</td><td>Top level <code>{}</code> entries</td><td><code>using MyNamespace;</code></td></tr>
+          <tr><td>Class name</td><td>Under the namespace</td><td><code>new ClassName()</code></td></tr>
+          <tr><td>Method name</td><td>Under the class</td><td><code>obj.MethodName()</code></td></tr>
+          <tr><td>Static method</td><td>Shows <code>static</code> keyword</td><td><code>ClassName.MethodName()</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- WRAPPER -->
+    <section id="wrapper">
+      <div class="section-header">
+        <span class="step-badge">03</span>
+        <h2>Build the Debug Wrapper</h2>
+      </div>
+      <p>The wrapper is a console application that creates an isolated 
+AppDomain, loads the DLL into it, finds your target class and method by 
+name, then calls it. All output is captured so you can see exactly what 
+happened at each step.</p>
+
+      <p>Replace <code>YourFile.dll</code>, <code>NameSpace.Class</code>, and <code>YourMethod</code> with the values you found using the Object Browser in Step 02.</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename">Program.cs</span>
+          <span class="code-lang">C#</span>
+        </div>
+        <pre><span class="kw">using</span> System;
+<span class="kw">using</span> System.IO;
+<span class="kw">using</span> System.Reflection;
+
+<span class="kw">namespace</span> <span class="cls">DebugWrapper</span>
+{
+    <span class="kw">class</span> <span class="cls">Program</span>
+    {
+        <span class="kw">static void</span> <span class="met">Main</span>(<span class="typ">string</span>[] args)
+        {
+            Console.<span class="met">WriteLine</span>(<span class="str">"=== Debug Wrapper Started ==="</span>);
+            Console.<span class="met">WriteLine</span>(<span class="str">$"[*] Running from: {AppDomain.CurrentDomain.BaseDirectory}"</span>);
+
+            <span class="kw">try</span>
+            {
+                <span class="cmt">// Create a new AppDomain with loadFromRemoteSources enabled</span>
+                <span class="cls">AppDomainSetup</span> setup = <span class="kw">new</span> <span class="cls">AppDomainSetup</span>
+                {
+                    ApplicationBase = AppDomain.CurrentDomain.BaseDirectory,
+                    LoaderOptimization = LoaderOptimization.SingleDomain
+                };
+
+                <span class="cmt">// Set the config to allow remote sources</span>
+                <span class="cls">AppDomain</span> newDomain = <span class="cls">AppDomain</span>.<span class="met">CreateDomain</span>(
+                    <span class="str">"LoaderDomain"</span>,
+                    <span class="kw">null</span>,
+                    setup
+                );
+
+                <span class="typ">string</span> dllPath = Path.<span class="met">Combine</span>(
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    <span class="str">"YourFile.dll"</span>);  <span class="cmt">// ← replace with your DLL filename</span>
+
+                Console.<span class="met">WriteLine</span>(<span class="str">$"[*] Attempting to load: {dllPath}"</span>);
+                Console.<span class="met">WriteLine</span>(<span class="str">$"[*] File exists: {File.Exists(dllPath)}"</span>);
+
+                <span class="cmt">// Load the assembly by full path</span>
+                <span class="cls">Assembly</span> asm = <span class="cls">Assembly</span>.<span class="met">LoadFile</span>(dllPath);
+                Console.<span class="met">WriteLine</span>(<span class="str">$"[*] Assembly loaded: {asm.FullName}"</span>);
+
+                <span class="cmt">// Find the class — use "Namespace.ClassName" format</span>
+                <span class="cls">Type</span> type = asm.<span class="met">GetType</span>(<span class="str">"NameSpace.Class"</span>);  <span class="cmt">// ← replace</span>
+                Console.<span class="met">WriteLine</span>(<span class="str">$"[*] Type found: {type}"</span>);
+
+                <span class="cmt">// Find the method by name</span>
+                <span class="kw">var</span> method = type.<span class="met">GetMethod</span>(<span class="str">"YourMethod"</span>);  <span class="cmt">// ← replace</span>
+                Console.<span class="met">WriteLine</span>(<span class="str">$"[*] Method found: {method}"</span>);
+
+                Console.<span class="met">WriteLine</span>(<span class="str">"[*] Calling YourMethod()..."</span>);
+                method.<span class="met">Invoke</span>(<span class="kw">null</span>, <span class="kw">null</span>);  <span class="cmt">// null = static method, null = no params</span>
+                Console.<span class="met">WriteLine</span>(<span class="str">"[*] YourMethod() completed successfully"</span>);
+            }
+            <span class="kw">catch</span> (<span class="cls">Exception</span> ex)
+            {
+                Console.<span class="met">WriteLine</span>(<span class="str">$"[!] Exception: {ex.GetType().Name}"</span>);
+                Console.<span class="met">WriteLine</span>(<span class="str">$"[!] Message: {ex.Message}"</span>);
+                <span class="kw">if</span> (ex.InnerException != <span class="kw">null</span>)
+                {
+                    Console.<span class="met">WriteLine</span>(<span class="str">$"[!] Inner Exception: {ex.InnerException.GetType().Name}"</span>);
+                    Console.<span class="met">WriteLine</span>(<span class="str">$"[!] Inner Message: {ex.InnerException.Message}"</span>);
+                }
+                Console.<span class="met">WriteLine</span>(<span class="str">$"[!] Stack trace:\n{ex.StackTrace}"</span>);
+            }
+
+            Console.<span class="met">WriteLine</span>(<span class="str">"=== Debug Wrapper Finished ==="</span>);
+            Console.<span class="met">ReadLine</span>();
+        }
+    }
+}</pre>
+      </div>
+
+      <h3 style="font-size:15px; margin: 24px 0 12px; color: var(--text);">What each section does</h3>
+
+      <table>
+        <thead>
+          <tr><th>Code</th><th>What it does</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>AppDomainSetup</code></td><td>Configures an isolated sandbox — sets the base folder and tells .NET not to share assemblies across domains</td></tr>
+          <tr><td><code>AppDomain.CreateDomain()</code></td><td>Creates the sandbox named "LoaderDomain". Helps bypass Windows security blocks on DLLs from other machines</td></tr>
+          <tr><td><code>Assembly.LoadFile()</code></td><td>Loads the DLL into memory by its full path. Use <code>LoadFile</code> not <code>LoadFrom</code> — LoadFrom triggers network location errors</td></tr>
+          <tr><td><code>asm.GetType()</code></td><td>Finds a class inside the loaded DLL by its fully qualified name e.g. <code>"MyNamespace.MyClass"</code></td></tr>
+          <tr><td><code>type.GetMethod()</code></td><td>Finds a method by name inside that class. Returns a <code>MethodInfo</code> object describing it</td></tr>
+          <tr><td><code>method.Invoke(null, null)</code></td><td>Calls the method. First <code>null</code> = static method (no instance needed). Second <code>null</code> = no parameters</td></tr>
+          <tr><td><code>ex.InnerException</code></td><td>The underlying cause of an error — often more specific than the outer exception. Only printed if one exists</td></tr>
+          <tr><td><code>Console.ReadLine()</code></td><td>Keeps the window open so you can read the output before it closes</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout tip">
+        <span class="callout-icon">✅</span>
+        <p><strong>Static vs instance methods.</strong> If you get <em>"cannot be accessed with an instance reference"</em>, the method is static. Change <code>method.Invoke(null, null)</code> — the first <code>null</code> is already correct for static. The error usually means you tried to create an instance with <code>new ClassName()</code> unnecessarily.</p>
+      </div>
+
+      <div class="callout info">
+        <span class="callout-icon">ℹ️</span>
+        <p><strong>Three values to replace.</strong> Before running, replace <code>YourFile.dll</code> with your DLL filename, <code>NameSpace.Class</code> with the fully qualified class name from the Object Browser, and <code>YourMethod</code> with the method name you want to call.</p>
+      </div>
+    </section>
+
+    <!-- REFERENCE -->
+    <section id="reference">
+      <div class="section-header">
+        <span class="step-badge">04</span>
+        <h2>Add the DLL Reference</h2>
+      </div>
+
+      <ol class="steps">
+        <li>
+          <div class="step-content">
+            <strong>Open Add Reference dialog</strong>
+            <p>In Solution Explorer, right-click your project name → <strong>Add → Project Reference</strong>. Or use the top menu: <strong>Project → Add Reference</strong>.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Browse to your DLL</strong>
+            <p>Click <strong>Browse</strong> (bottom left of the dialog) → navigate to your <code>.dll</code> file → click <strong>Add → OK</strong>.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Confirm it appears</strong>
+            <p>Expand <strong>References</strong> (or <strong>Dependencies → Assemblies</strong>) in Solution Explorer — your DLL should appear there.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Unblock the DLL if needed</strong>
+            <p>If the DLL came from another machine, Windows may block it. Right-click the file → <strong>Properties</strong> → tick <strong>Unblock</strong> → <strong>Apply</strong>. Or run in PowerShell: <code>Unblock-File -Path "C:\path\to\file.dll"</code></p>
+          </div>
+        </li>
+      </ol>
+
+      <div class="callout warn">
+        <span class="callout-icon">⚠️</span>
+        <p><strong>loadFromRemoteSources.</strong> If you see <em>NotSupportedException: An attempt was made to load an assembly from a network location</em>, add this to your <code>App.config</code>:</p>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename">App.config</span>
+          <span class="code-lang">XML</span>
+        </div>
+        <pre><span class="str">&lt;?xml version="1.0" encoding="utf-8"?&gt;</span>
+&lt;<span class="kw">configuration</span>&gt;
+  &lt;<span class="kw">startup</span>&gt;
+    &lt;<span class="kw">supportedRuntime</span> <span class="cls">version</span>=<span class="str">"v4.0"</span>
+      <span class="cls">sku</span>=<span class="str">".NETFramework,Version=v4.8"</span>/&gt;
+  &lt;/<span class="kw">startup</span>&gt;
+  &lt;<span class="kw">runtime</span>&gt;
+    &lt;<span class="kw">loadFromRemoteSources</span> <span class="cls">enabled</span>=<span class="str">"true"</span>/&gt;
+  &lt;/<span class="kw">runtime</span>&gt;
+&lt;/<span class="kw">configuration</span>&gt;</pre>
+      </div>
+
+      <p>Then make sure <code>DebuggerWrapper.exe.config</code> exists in your build output folder with the same content. If it doesn't appear automatically, add a post-build event:</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename">Post-build event</span>
+          <span class="code-lang">CMD</span>
+        </div>
+        <pre>copy <span class="str">"$(ProjectDir)App.config"</span> <span class="str">"$(TargetDir)$(TargetName).exe.config"</span></pre>
+      </div>
+    </section>
+
+    <!-- FRAMEWORK -->
+    <section id="framework">
+      <div class="section-header">
+        <span class="step-badge">05</span>
+        <h2>Match the Framework Version</h2>
+      </div>
+      <p>Your wrapper must target the same .NET Framework version as the
+ DLL. A version mismatch is one of the most common causes of load 
+failures.</p>
+
+      <h3 style="font-size:15px; margin: 20px 0 12px; color: var(--text);">How to check and change</h3>
+      <ol class="steps">
+        <li>
+          <div class="step-content">
+            <strong>Check the DLL's runtime in dnSpy</strong>
+            <p>Open the DLL in dnSpy. The header at the top of Assembly Explorer shows <em>Runtime: .NET Framework 4.8</em> (or whatever version it targets).</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Check your wrapper's framework</strong>
+            <p>Double-click your project in Solution Explorer to open the <code>.csproj</code> file. Look for <code>&lt;TargetFramework&gt;</code>.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Change if needed</strong>
+            <p>Right-click project → <strong>Properties → Application tab → Target Framework</strong> → select the matching version. If it's not listed, install it via <strong>Visual Studio Installer → Individual Components → .NET Framework x.x targeting pack</strong>.</p>
+          </div>
+        </li>
+      </ol>
+
+      <table>
+        <thead>
+          <tr><th>DLL Runtime</th><th>.csproj value</th><th>Project type to create</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>.NET Framework 4.8</td><td><code>net48</code></td><td>Console App (.NET Framework)</td></tr>
+          <tr><td>.NET Framework 4.7.2</td><td><code>net472</code></td><td>Console App (.NET Framework)</td></tr>
+          <tr><td>.NET 8</td><td><code>net8.0</code></td><td>Console App (.NET)</td></tr>
+          <tr><td>.NET 6</td><td><code>net6.0</code></td><td>Console App (.NET)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- COMMON ERRORS -->
+    <section id="common-errors">
+      <div class="section-header">
+        <span class="step-badge">06</span>
+        <h2>Common Errors &amp; Fixes</h2>
+      </div>
+
+      <table>
+        <thead>
+          <tr><th>Error</th><th>Cause</th><th>Fix</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>BadImageFormatException</code></td>
+            <td>Architecture mismatch (x86 vs x64)</td>
+            <td>Set Platform Target to x64 in project Properties → Build</td>
+          </tr>
+          <tr>
+            <td><code>FileNotFoundException</code> (assembly not found)</td>
+            <td>DLL internal name differs from filename</td>
+            <td>Rename the file to match the internal assembly name shown in dnSpy</td>
+          </tr>
+          <tr>
+            <td><code>NotSupportedException</code> (network location)</td>
+            <td>Windows blocked the DLL</td>
+            <td>Unblock the file via Properties or <code>Unblock-File</code> in PowerShell, and add <code>loadFromRemoteSources</code> to App.config</td>
+          </tr>
+          <tr>
+            <td>Cannot access with instance reference</td>
+            <td>Method is static</td>
+            <td>Call as <code>ClassName.Method()</code> not <code>obj.Method()</code></td>
+          </tr>
+          <tr>
+            <td><code>FileLoadException</code> (missing dependency)</td>
+            <td>DLL depends on another DLL</td>
+            <td>Copy all dependency DLLs to build output folder, or install via NuGet</td>
+          </tr>
+          <tr>
+            <td>Framework mismatch error</td>
+            <td>Wrapper targets different .NET version</td>
+            <td>Match wrapper framework to DLL framework exactly</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- DNSPY -->
+    <section id="dnspy">
+      <div class="section-header">
+        <span class="step-badge">07</span>
+        <h2>Debug with dnSpy</h2>
+      </div>
+      <p>dnSpy can decompile .NET DLLs and let you set breakpoints 
+directly inside them — even without source code. Combine it with your 
+wrapper EXE to step through DLL code line by line.</p>
+
+      <ol class="steps">
+        <li>
+          <div class="step-content">
+            <strong>Open dnSpy and load the DLL</strong>
+            <p>Go to <strong>File → Open</strong> → select your <code>.dll</code> file. It appears in the Assembly Explorer on the left.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Navigate to your target method</strong>
+            <p>In Assembly Explorer expand: <code>YourDLL → Namespace → Class → Method</code>. Double-click the method to open its decompiled source.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Set a breakpoint</strong>
+            <p>Click in the left margin next to the first line of code 
+inside the method. A red dot appears — this is your breakpoint inside 
+the DLL.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Start debugging via your wrapper</strong>
+            <p>Go to <strong>Debug → Start Debugging (Launch)</strong> → set Debug Engine to <strong>.NET Framework</strong> → browse to your <code>DebugWrapper.exe</code> → click <strong>OK</strong>.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Step through the code</strong>
+            <p>When execution hits your breakpoint, use <kbd>F10</kbd> to step over each line and <kbd>F11</kbd> to step into function calls. Hover over any variable to inspect its value.</p>
+          </div>
+        </li>
+      </ol>
+
+      <div class="callout tip">
+        <span class="callout-icon">✅</span>
+        <p><strong>Enable Just My Code — OFF.</strong> In Visual Studio go to <strong>Tools → Options → Debugging → General</strong> and <strong>uncheck</strong> "Enable Just My Code". This allows stepping into external DLL code.</p>
+      </div>
+
+      <h3 style="font-size:15px; margin: 24px 0 12px; color: var(--text);">Useful dnSpy Windows</h3>
+      <table>
+        <thead>
+          <tr><th>Window</th><th>How to open</th><th>What it shows</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Locals</td><td>Debug → Windows → Locals</td><td>All variables in current scope</td></tr>
+          <tr><td>Watch</td><td>Debug → Windows → Watch → Watch 1</td><td>Expressions you manually add</td></tr>
+          <tr><td>Call Stack</td><td>Debug → Windows → Call Stack</td><td>How execution reached this point</td></tr>
+          <tr><td>Analyzer</td><td>Right-click method → Analyze</td><td>Where a method is called from (Used By)</td></tr>
+          <tr><td>Immediate</td><td>Debug → Windows → Immediate</td><td>Run expressions live while paused</td></tr>
+        </tbody>
+      </table>
+
+      <h3 style="font-size:15px; margin: 24px 0 12px; color: var(--text);">Patching Methods in dnSpy</h3>
+      <p>You can modify decompiled code on the fly to bypass checks or hardcode return values:</p>
+      <ol class="steps">
+        <li>
+          <div class="step-content">
+            <strong>Right-click the method → Edit Method (C#)</strong>
+            <p>A code editor opens with the decompiled source.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Modify the code</strong>
+            <p>Replace the method body with your patched version — for example, return a hardcoded value instead of computing one.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-content">
+            <strong>Click Compile then save</strong>
+            <p>Click <strong>Compile</strong> in the editor. Then go to <strong>File → Save Module</strong> to save the patched DLL to disk.</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <!-- SHORTCUTS -->
+    <section id="shortcuts">
+      <div class="section-header">
+        <span class="step-badge">08</span>
+        <h2>Debug Keyboard Shortcuts</h2>
+      </div>
+
+      <div class="key-grid">
+        <div class="key-card"><kbd>F5</kbd><span class="key-desc">Continue to next breakpoint</span></div>
+        <div class="key-card"><kbd>F10</kbd><span class="key-desc">Step over — don't enter function</span></div>
+        <div class="key-card"><kbd>F11</kbd><span class="key-desc">Step into — enter function call</span></div>
+        <div class="key-card"><kbd>Shift+F11</kbd><span class="key-desc">Step out of current function</span></div>
+        <div class="key-card"><kbd>Ctrl+Shift+B</kbd><span class="key-desc">Build solution</span></div>
+        <div class="key-card"><kbd>Ctrl+Alt+J</kbd><span class="key-desc">Open Object Browser</span></div>
+        <div class="key-card"><kbd>Ctrl+Alt+I</kbd><span class="key-desc">Open Immediate Window</span></div>
+        <div class="key-card"><kbd>Ctrl+Shift+F</kbd><span class="key-desc">Search all code (dnSpy)</span></div>
+      </div>
+
+      <div class="callout tip">
+        <span class="callout-icon">💡</span>
+        <p><strong>Immediate Window tip.</strong> While paused on a breakpoint, type any expression in the Immediate Window and press <kbd>Enter</kbd> to evaluate it live — e.g. call a method, read a property, or compute a value using the current execution context.</p>
+      </div>
+
+      <div class="callout danger">
+        <span class="callout-icon">🔒</span>
+        <p><strong>Safety reminder.</strong> Always analyse unknown DLLs
+ in an isolated VM with no network access. Even loading a DLL can 
+trigger callbacks. Never run on your host machine.</p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  <p>Built for security researchers and reverse engineers &nbsp;·&nbsp; <a href="https://github.com/">View on GitHub</a></p>
+</footer>
+
+<script>
+  // Scroll animation
+  const sections = document.querySelectorAll('section');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.05 });
+  sections.forEach(s => observer.observe(s));
+
+  // Active sidebar link
+  const navLinks = document.querySelectorAll('.sidebar nav a');
+  const sectionObserver = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(l => l.classList.remove('active'));
+        const active = document.querySelector(`.sidebar nav a[href="#${e.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { threshold: 0.4 });
+  sections.forEach(s => sectionObserver.observe(s));
+</script>
+
+
+
+</body></html>
